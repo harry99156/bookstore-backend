@@ -1,6 +1,6 @@
 # How PageTurner was built with IBM Bob
 
-**Repository:** `<ADD GITHUB REPOSITORY URL HERE>`  
+**Repository:** https://github.com/harry99156/bookstore-backend
 **Live demo (optional):** `<ADD RENDER URL HERE>` (see "Deploy to the cloud" in the [README](../README.md))
 
 This document shows what Bob did, how it decided, and where to verify each claim in the code.
@@ -89,7 +89,7 @@ Aim for process and reasoning, not just a tour of features. Keep the Bob chat pa
 
 ### Checklist before submitting
 
-- [ ] Replace both placeholders at the top of this file with the real GitHub and demo URLs.
+- [ ] Replace the demo placeholder at the top of this file with the real Render URL (or delete that line).
 - [ ] Put the same GitHub URL in the video description and the submission form.
 - [ ] Show the Bob chat (prompt, todo list, the failing then passing build) on screen, not only the finished app.
 - [ ] State at least three design decisions out loud with their reason (section 4).
