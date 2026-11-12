@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PageTurner Books</title>
+<style>
+  :root { --ink:#1f2328; --muted:#57606a; --line:#e5e7eb; --bg:#f7f8fa; --accent:#3b82d4; --ai:#7c5cd8; --bad:#c0392b; --ok:#1e8449; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 -apple-system,"Segoe UI",system-ui,sans-serif; color:var(--ink); background:var(--bg); }
+  header { background:#fff; border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5; }
+  .bar { max-width:1100px; margin:0 auto; padding:12px 16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  .brand { font-weight:700; font-size:18px; margin-right:auto; }
+  .brand small { font-weight:400; color:var(--muted); font-size:12px; margin-left:6px; }
+  button { font:inherit; cursor:pointer; border:1px solid var(--line); background:#fff; border-radius:6px; padding:7px 12px; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button.ai { background:var(--ai); border-color:var(--ai); color:#fff; }
+  button:disabled { opacity:.5; cursor:default; }
+  input, select { font:inherit; padding:7px 10px; border:1px solid var(--line); border-radius:6px; background:#fff; }
+  main { max-width:1100px; margin:0 auto; padding:16px; }
+  .search { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
+  .search input[type=text] { flex:1; min-width:220px; }
+  .tabs { display:flex; gap:6px; margin-bottom:10px; }
+  .tabs button.on { border-color:var(--accent); color:var(--accent); font-weight:600; }
+  .tabs button.on.ai { border-color:var(--ai); color:var(--ai); }
+  #status { min-height:22px; color:var(--muted); margin:6px 0 12px; }
+  #status.err { color:var(--bad); } #status.ok { color:var(--ok); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:8px; padding:14px; display:flex; flex-direction:column; gap:6px; }
+  .card h3 { margin:0; font-size:16px; }
+  .meta { color:var(--muted); font-size:13px; }
+  .desc { font-size:13px; flex:1; }
+  .row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:4px; }
+  .price { font-weight:700; }
+  .tag { font-size:12px; background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:1px 8px; }
+  .tag.low { color:#9a6700; } .tag.out { color:var(--bad); } .tag.match { color:var(--ai); border-color:var(--ai); }
+  .pager { display:flex; gap:8px; justify-content:center; align-items:center; margin:18px 0; color:var(--muted); }
+  aside { position:fixed; top:0; right:0; height:100%; width:min(400px,100%); background:#fff; border-left:1px solid var(--line); padding:16px; overflow:auto; transform:translateX(100%); z-index:10; }
+  aside.open { transform:none; }
+  aside h2 { margin:0 0 10px; font-size:17px; display:flex; justify-content:space-between; align-items:center; }
+  .line { display:flex; gap:8px; align-items:center; padding:8px 0; border-bottom:1px solid var(--line); }
+  .line .t { flex:1; } .line input { width:58px; }
+  form.checkout { display:grid; gap:8px; margin-top:14px; }
+  .order { border:1px solid var(--line); border-radius:6px; padding:8px 10px; margin-top:8px; font-size:13px; }
+  .hint { font-size:12px; color:var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="brand">PageTurner Books <small>Spring Boot + LangChain4j</small></div>
+    <button id="ordersBtn">My orders</button>
+    <button id="cartBtn" class="primary">Cart (<span id="cartCount">0</span>)</button>
+    <a href="/swagger-ui.html" class="meta">API docs</a>
+  </div>
+</header>
+
+<main>
+  <div class="tabs">
+    <button id="tabKw" class="on">Browse &amp; filter</button>
+    <button id="tabAi" class="ai">Describe what you want (AI)</button>
+  </div>
+
+  <form id="kwForm" class="search">
+    <input type="text" id="q" placeholder="Search title or description">
+    <select id="genre"><option value="">All genres</option></select>
+    <select id="sort">
+      <option value="title|asc">Title A-Z</option>
+      <option value="price|asc">Price low-high</option>
+      <option value="price|desc">Price high-low</option>
+      <option value="author|asc">Author A-Z</option>
+    </select>
+    <button class="primary" type="submit">Search</button>
+  </form>
+
+  <form id="aiForm" class="search" hidden>
+    <input type="text" id="aiq" placeholder='e.g. "a story of wizards, dragons and a quest"'>
+    <button class="ai" type="submit">Recommend</button>
+  </form>
+  <div class="hint" id="aiHint" hidden>Ranked by meaning with embeddings, not keywords. Only in-stock books are suggested.</div>
+
+  <div id="status"></div>
+  <div class="grid" id="grid"></div>
+  <div class="pager" id="pager"></div>
+</main>
+
+<aside id="cartPanel">
+  <h2>Your cart <button id="closeCart">Close</button></h2>
+  <div id="cartLines"></div>
+  <div class="row"><strong>Total</strong><strong id="cartTotal">$0.00</strong></div>
+  <form class="checkout" id="checkoutForm">
+    <input name="customerName" placeholder="Full name" required maxlength="255">
+    <input name="customerEmail" type="email" placeholder="Email" required>
+    <input name="shippingAddress" placeholder="Shipping address" required maxlength="500">
+    <button class="primary" type="submit" id="placeBtn">Place order</button>
+  </form>
+</aside>
+
+<aside id="ordersPanel">
+  <h2>My orders <button id="closeOrders">Close</button></h2>
+  <form class="checkout" id="ordersForm">
+    <input name="email" type="email" placeholder="Email used at checkout" required>
+    <button type="submit">Find orders</button>
+  </form>
+  <div id="ordersList"></div>
+</aside>
+
+<script>
+const API = '/api/v1';
+const $ = id => document.getElementById(id);
+const money = n => '$' + Number(n).toFixed(2);
+let page = 0, mode = 'kw', cart = null;
+
+function el(tag, props = {}, ...kids) {           // all text goes through textContent: no HTML injection
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === 'class') e.className = v; else if (k === 'on') for (const [ev, fn] of Object.entries(v)) e.addEventListener(ev, fn); else e[k] = v;
+  }
+  kids.flat().forEach(c => e.append(c));
+  return e;
+}
+function status(msg, kind = '') { const s = $('status'); s.textContent = msg; s.className = kind; }
+
+async function api(path, opts = {}) {
+  const res = await fetch(API + path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  if (res.status === 204) return null;
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const fields = body.errors ? ' ' + Object.entries(body.errors).map(([f, m]) => f + ': ' + m).join('; ') : '';
+    const err = new Error((body.detail || 'Request failed (' + res.status + ')') + fields);
+    err.status = res.status; throw err;
+  }
+  return body;
+}
+
+// ---------- catalog ----------
+function bookCard(b, score) {
+  const stock = b.stock === 0 ? el('span', { class: 'tag out' }, 'Out of stock')
+              : b.stock <= 5 ? el('span', { class: 'tag low' }, 'Only ' + b.stock + ' left')
+              : el('span', { class: 'tag' }, 'In stock');
+  const btn = el('button', { class: 'primary', disabled: b.stock === 0, on: { click: () => addToCart(b.id) } }, 'Add to cart');
+  return el('div', { class: 'card' },
+    el('h3', {}, b.title),
+    el('div', { class: 'meta' }, b.author + ' - ' + b.genre),
+    el('div', { class: 'desc' }, b.description || ''),
+    el('div', { class: 'row' }, el('span', { class: 'price' }, money(b.price)), stock,
+      score != null ? el('span', { class: 'tag match' }, Math.round(score * 100) + '% match') : ''),
+    btn);
+}
+
+function render(books, scores) {
+  const g = $('grid'); g.replaceChildren(...books.map((b, i) => bookCard(b, scores ? scores[i] : null)));
+}
+
+async function loadBooks() {
+  const [sortBy, direction] = $('sort').value.split('|');
+  const p = new URLSearchParams({ page, size: 8, sortBy, direction });
+  if ($('q').value.trim()) p.set('q', $('q').value.trim());
+  if ($('genre').value) p.set('genre', $('genre').value);
+  try {
+    status('Loading...');
+    const r = await api('/books?' + p);
+    render(r.content);
+    status(r.totalElements + ' book(s)');
+    const pager = $('pager');
+    pager.replaceChildren(
+      el('button', { disabled: r.first, on: { click: () => { page--; loadBooks(); } } }, 'Previous'),
+      el('span', {}, 'Page ' + (r.number + 1) + ' of ' + Math.max(r.totalPages, 1)),
+      el('button', { disabled: r.last, on: { click: () => { page++; loadBooks(); } } }, 'Next'));
+  } catch (e) { status(e.message, 'err'); }
+}
+
+async function loadGenres() {                       // derive genre list from the catalog itself
+  try {
+    const r = await api('/books?size=100');
+    [...new Set(r.content.map(b => b.genre))].sort().forEach(g => $('genre').append(el('option', { value: g }, g)));
+  } catch (e) { /* non-fatal */ }
+}
+
+async function recommend(text) {
+  $('pager').replaceChildren();
+  try {
+    status('Asking the AI...');
+    const r = await api('/books/recommendations?limit=6&query=' + encodeURIComponent(text));
+    render(r.results.map(x => x.book), r.results.map(x => x.score));
+    status(r.results.length ? 'Best matches for: ' + text : 'No in-stock matches', 'ok');
+  } catch (e) {
+    status(e.status === 503 ? 'AI recommendations are temporarily unavailable. Normal browsing still works.' : e.message, 'err');
+  }
+}
+
+// ---------- cart ----------
+async function ensureCart() {
+  const id = localStorage.getItem('cartId');
+  if (id) { try { cart = await api('/carts/' + id); return; } catch (e) { if (e.status !== 404) throw e; } }
+  cart = await api('/carts', { method: 'POST' });
+  localStorage.setItem('cartId', cart.id);
+}
+function paintCart() {
+  $('cartCount').textContent = cart.items.reduce((n, i) => n + i.quantity, 0);
+  $('cartTotal').textContent = money(cart.total);
+  $('placeBtn').disabled = cart.items.length === 0;
+  $('cartLines').replaceChildren(...(cart.items.length ? cart.items.map(i =>
+    el('div', { class: 'line' },
+      el('div', { class: 't' }, el('div', {}, i.title), el('div', { class: 'meta' }, money(i.unitPrice) + ' each')),
+      el('input', { type: 'number', min: 1, max: 100, value: i.quantity, on: { change: ev => setQty(i.bookId, +ev.target.value) } }),
+      el('strong', {}, money(i.lineTotal)),
+      el('button', { on: { click: () => removeItem(i.bookId) } }, 'x'))) : [el('p', { class: 'meta' }, 'Your cart is empty.')]));
+}
+async function cartAction(fn, okMsg) {
+  try { await ensureCart(); cart = await fn(); paintCart(); if (okMsg) status(okMsg, 'ok'); }
+  catch (e) { status(e.message, 'err'); await ensureCart().then(paintCart).catch(() => {}); }
+}
+const addToCart = id => cartAction(() => api(`/carts/${cart.id}/items`, { method: 'POST', body: JSON.stringify({ bookId: id, quantity: 1 }) }), 'Added to cart');
+const setQty = (id, q) => cartAction(() => api(`/carts/${cart.id}/items/${id}`, { method: 'PUT', body: JSON.stringify({ quantity: q }) }));
+const removeItem = id => cartAction(() => api(`/carts/${cart.id}/items/${id}`, { method: 'DELETE' }));
+
+$('checkoutForm').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const f = new FormData(ev.target);
+  try {
+    const o = await api('/orders', { method: 'POST', body: JSON.stringify({ cartId: cart.id, ...Object.fromEntries(f) }) });
+    await ensureCart(); paintCart();
+    $('cartPanel').classList.remove('open');
+    status('Order #' + o.id + ' placed - total ' + money(o.total) + '. Thank you!', 'ok');
+    page = 0; loadBooks().then(() => status('Order #' + o.id + ' placed - total ' + money(o.total) + '. Thank you!', 'ok'));
+  } catch (e) { status(e.message, 'err'); $('cartPanel').classList.remove('open'); }
+});
+
+// ---------- orders ----------
+$('ordersForm').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const list = $('ordersList');
+  try {
+    const orders = await api('/orders?email=' + encodeURIComponent(new FormData(ev.target).get('email')));
+    list.replaceChildren(...(orders.length ? orders.map(o => el('div', { class: 'order' },
+      el('div', {}, el('strong', {}, '#' + o.id + ' - ' + o.status), ' - ' + money(o.total)),
+      el('div', { class: 'meta' }, o.items.map(i => i.quantity + ' x ' + i.title).join(', ')),
+      o.status === 'PLACED' ? el('button', { on: { click: async () => {
+        try { await api('/orders/' + o.id + '/cancel', { method: 'POST' }); ev.target.requestSubmit(); loadBooks(); }
+        catch (e) { status(e.message, 'err'); } } } }, 'Cancel order') : '')) : [el('p', { class: 'meta' }, 'No orders for that email.')]));
+  } catch (e) { list.replaceChildren(el('p', { class: 'meta' }, e.message)); }
+});
+
+// ---------- wiring ----------
+function setMode(m) {
+  mode = m;
+  $('kwForm').hidden = m !== 'kw'; $('aiForm').hidden = $('aiHint').hidden = m !== 'ai';
+  $('tabKw').classList.toggle('on', m === 'kw'); $('tabAi').classList.toggle('on', m === 'ai');
+  if (m === 'kw') { page = 0; loadBooks(); } else { $('aiq').focus(); }
+}
+$('tabKw').onclick = () => setMode('kw'); $('tabAi').onclick = () => setMode('ai');
+$('kwForm').addEventListener('submit', ev => { ev.preventDefault(); page = 0; loadBooks(); });
+$('aiForm').addEventListener('submit', ev => { ev.preventDefault(); const t = $('aiq').value.trim(); if (t) recommend(t); });
+$('cartBtn').onclick = () => { $('ordersPanel').classList.remove('open'); $('cartPanel').classList.add('open'); };
+$('closeCart').onclick = () => $('cartPanel').classList.remove('open');
+$('ordersBtn').onclick = () => { $('cartPanel').classList.remove('open'); $('ordersPanel').classList.add('open'); };
+$('closeOrders').onclick = () => $('ordersPanel').classList.remove('open');
+
+(async () => {
+  await loadGenres(); await loadBooks();
+  try { await ensureCart(); paintCart(); } catch (e) { status(e.message, 'err'); }
+})();
+</script>
+</body>
+</html>
