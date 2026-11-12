@@ -1,7 +1,13 @@
 # PageTurner Bookstore Backend
 
 Full-stack eCommerce bookstore in one deployable jar: a REST backend (catalog search, shopping cart, atomic checkout with stock control, order history and cancellation), AI-powered book recommendations, and a small storefront UI served at `/`.
-Designed and built with an agentic IDE (IBM Bob) - see [docs/DEVELOPMENT_WITH_BOB.md](docs/DEVELOPMENT_WITH_BOB.md).
+Designed and built with an agentic IDE (IBM Bob).
+
+## How IBM Bob was used
+
+Bob acted as an agent, not an autocomplete: it planned the work with a todo list, generated the code layer by layer, ran `mvn verify`, read a real failure (`LazyInitializationException`) and fixed its root cause, then drove the running jar over HTTP and loaded the storefront in a headless browser to verify it. It also reused an embedding setup from another project for the AI recommendations and reviewed its own output (it caught a Javadoc that promised restocking the code did not yet do).
+
+Full write-up with the design decisions and the reasons behind them, an architecture diagram, and the demo video script: [docs/DEVELOPMENT_WITH_BOB.md](docs/DEVELOPMENT_WITH_BOB.md).
 
 **Stack:** Java 21, Spring Boot 3.3, Spring Data JPA, Bean Validation, springdoc OpenAPI, LangChain4j + Ollama (AI recommendations), H2 (dev/test) / PostgreSQL (prod), Docker, GitHub Actions.
 
